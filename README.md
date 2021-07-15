@@ -1,6 +1,6 @@
 # Apollo Chatroom Server
 
-Chatroom Server made using Apollo, Graphql, Mongodb.
+Chatroom Server made using Apollo, Graphql and Mongodb.
 
 
 # Deploy on local
