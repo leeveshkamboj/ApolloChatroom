@@ -41,13 +41,12 @@ if (Config.dbUrl) {
             { schema, execute, subscribe },
             { server: httpServer, path: server.graphqlPath }
           );
-          const PORT = 4000;
-          httpServer.listen(PORT, () =>
+          httpServer.listen(Config.port, () =>
             console.log(
-              `Subscription server is now running on ws://localhost:${PORT}${server.graphqlPath}`
+              `Subscription server is now running on ws://localhost:${Config.port}${server.graphqlPath}`
             )
           )
-          console.log(`🚀  Server ready at http://localhost:${PORT}${server.graphqlPath}`);
+          console.log(`🚀  Server ready at http://localhost:${Config.port}${server.graphqlPath}`);
         })
         .catch((err) => {
           console.log(err);
