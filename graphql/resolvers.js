@@ -172,7 +172,7 @@ module.exports = {
       const link = Config.verify_address + generateEmailVerifyToken(user._id);
 
       const message = {
-        from: "no-reply@noice.me",
+        from: Config.smpt_email,
         to: email,
         subject: "Verify your email address",
         html: `Hey ${username}, confirm your email by click <a href="${link}">here</a>`,

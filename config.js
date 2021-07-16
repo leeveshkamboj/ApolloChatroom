@@ -8,5 +8,6 @@ module.exports = {
   smpt_port: process.env.SMTP_PORT,
   smpt_user: process.env.SMTP_USER,
   smpt_pass: process.env.SMTP_PASS,
+  smpt_email: process.env.SMTP_EMAIL,
   verify_address: process.env.VERIFY_ADDRESS,
 };

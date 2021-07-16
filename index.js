@@ -10,7 +10,6 @@ const Config = require("./config");
 const typeDefs = require("./graphql/typedefs");
 const resolvers = require("./graphql/resolvers");
 
-// const pubsub = new PubSub();
 const schema = makeExecutableSchema({
   typeDefs,
   resolvers,
@@ -20,6 +19,7 @@ const server = new ApolloServer({
   schema,
   context: ({ req }) => ({ req, pubsub })
 });
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -43,7 +43,7 @@ if (Config.dbUrl) {
           );
           httpServer.listen(Config.port, () =>
             console.log(
-              `Subscription server is now running on ws://localhost:${Config.port}${server.graphqlPath}`
+              `🚀  Subscription server ready at ws://localhost:${Config.port}${server.graphqlPath}`
             )
           )
           console.log(`🚀  Server ready at http://localhost:${Config.port}${server.graphqlPath}`);

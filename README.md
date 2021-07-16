@@ -16,6 +16,7 @@ SMTP_HOST=Host of SMTP
 SMTP_PORT=Port of SMTP
 SMTP_USER=Username of SMTP
 SMTP_PASS=Password of SMTP
+SMTP_EMAIL=Email of SMTP
 VERIFY_ADDRESS=Address for email verification eg. https://{url-of-your-frontend}/verify/
 ```
 
