@@ -4,7 +4,7 @@ const {
   AuthenticationError,
 } = require("apollo-server");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const { PubSub } = require("graphql-subscriptions");
 
 const User = require("../models/user");
