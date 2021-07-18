@@ -5,14 +5,17 @@ const {
 } = require("apollo-server");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const { PubSub } = require("graphql-subscriptions");
+const { PubSub, withFilter } = require("graphql-subscriptions");
 
 const User = require("../models/user");
 const Message = require("../models/message");
+const Contact = require("../models/contacts");
+const Pm = require("../models/pm");
 const { registerValidator, loginValidator } = require("../utils/validators");
 const transport = require("../utils/mailer");
 const Config = require("../config");
 const checkAuth = require("../utils/check-auth");
+const { secretKey } = require("../config");
 
 const pubsub = new PubSub();
 
@@ -43,17 +46,108 @@ function generateEmailVerifyToken(id) {
   );
 }
 
+async function updateContact(
+  selfUsername,
+  newContact,
+  lastMessageUsername,
+  lastMessage,
+  lastMessageAt
+) {
+  const newContactObj = {
+    username: newContact,
+    lastMessageUsername,
+    lastMessage,
+    lastMessageAt,
+  };
+  contact = await Contact.findOne({
+    username: selfUsername,
+  });
+  if (!contact) {
+    contact = new Contact({
+      username: selfUsername,
+      contacts: [newContactObj],
+    });
+    await contact.save();
+  } else {
+    await contact.updateOne({
+      username: selfUsername,
+      contacts: [
+        ...contact.contacts.filter((contact) => {
+          return contact.username != newContact;
+        }),
+        newContactObj,
+      ],
+    });
+  }
+}
+
 module.exports = {
   Query: {
     async getMessages() {
       messages = await Message.find().sort({ createdAt: 1 });
       return messages;
     },
+    async getContacts(_, __, context) {
+      const user = checkAuth(context);
+      contact = await Contact.findOne({
+        username: user.username,
+      });
+      if (!contact) {
+        return [];
+      } else {
+        return contact.contacts;
+      }
+    },
+    async getPms(_, { username }, context) {
+      const user = checkAuth(context);
+      if (!user) {
+        throw new UserInputError("Invalid token");
+      }
+      if (user.username == username) {
+        throw new UserInputError("Can't get message.", {
+          errors: {
+            username: "Can't set messages.",
+          },
+        });
+      }
+      if (
+        !(await User.findOne({
+          username,
+        }))
+      ) {
+        throw new UserInputError("Username is not found", {
+          errors: {
+            username: "There is no user by this username",
+          },
+        });
+      }
+      const users = [username, user.username].sort();
+      conv = await Pm.findOne({
+        users,
+      }).sort({ createdAt: 1 });
+      if (!conv) {
+        return [];
+      }
+      return conv.messages;
+    },
   },
 
   Subscription: {
     messageCreated: {
       subscribe: () => pubsub.asyncIterator(["MESSAGE_CREATED"]),
+    },
+    pmCreated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator("PM_CREATED"),
+        (payload, variables) => {
+          const user = jwt.verify(variables.token, secretKey);
+          return (
+            (payload.toUsername === user.username &&
+              variables.username === payload.pmCreated.username) ||
+            payload.pmCreated.username === user.username
+          );
+        }
+      ),
     },
   },
 
@@ -83,6 +177,81 @@ module.exports = {
         body: r.body,
         createdAt: r.createdAt,
       };
+    },
+
+    async postPm(_, { username, body }, context) {
+      const user = checkAuth(context);
+      if (!user) {
+        throw new UserInputError("Invalid token");
+      }
+      if (user.username == username) {
+        throw new UserInputError("Can't send message to self.", {
+          errors: {
+            username: "Can't send message to self.",
+          },
+        });
+      }
+      if (
+        !(await User.findOne({
+          username,
+        }))
+      ) {
+        throw new UserInputError("Username is not found", {
+          errors: {
+            username: "There is no user by this username",
+          },
+        });
+      }
+      if (body.trim() === "") {
+        throw new UserInputError("Empty message body.", {
+          errors: {
+            body: "Message can't be empty.",
+          },
+        });
+      }
+      const date = new Date().toISOString();
+
+      const users = [username, user.username].sort();
+      conv = await Pm.findOne({
+        users,
+      });
+      if (!conv) {
+        pm = new Pm({
+          users,
+          messages: [],
+        });
+        conv = await pm.save();
+      }
+
+      pmPosted = await conv.updateOne({
+        messages: [
+          ...conv.messages,
+          {
+            username: user.username,
+            body: body,
+            createdAt: date,
+            seen: true,
+          },
+        ],
+      });
+
+      const sendPm = {
+        id: conv._id,
+        username: user.username,
+        body: body,
+        createdAt: date,
+        seen: true,
+      };
+
+      pubsub.publish(`PM_CREATED`, {
+        pmCreated: sendPm,
+        toUsername: username,
+      });
+
+      await updateContact(user.username, username, user.username, body, date);
+      await updateContact(username, user.username, user.username, body, date);
+
+      return sendPm;
     },
 
     async login(_, { username, password }) {

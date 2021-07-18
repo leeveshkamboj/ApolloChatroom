@@ -17,11 +17,27 @@ module.exports = gql`
     body: String!
     createdAt: String!
   }
+  type Contact {
+    username: String
+    lastMessageUsername: String
+    lastMessage: String
+    lastMessageAt: String
+  }
+  type Pm {
+    id: ID
+    username: String
+    body: String
+    createdAt: String
+    seen: Boolean
+  }
   type Query {
     getMessages: [Message]!
+    getContacts: [Contact]!
+    getPms(username: String!): [Pm]!
   }
   type Subscription {
     messageCreated: Message
+    pmCreated(token: String!, username: String!): Pm
   }
   type Mutation {
     login(username: String!, password: String!): User
@@ -33,5 +49,6 @@ module.exports = gql`
     ): registerOutput
     verifyEmail(token: String!): User
     postMessage(body: String!): Message
+    postPm(username: String!, body: String!): Pm
   }
 `;

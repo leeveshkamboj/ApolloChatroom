@@ -17,7 +17,7 @@ const schema = makeExecutableSchema({
 
 const server = new ApolloServer({
   schema,
-  context: ({ req }) => ({ req, pubsub })
+  context: ({ req }) => ({ req, pubsub }),
 });
 
 const app = express();
@@ -38,15 +38,22 @@ if (Config.dbUrl) {
         .then(() => {
           server.applyMiddleware({ app });
           SubscriptionServer.create(
-            { schema, execute, subscribe },
+            {
+              schema,
+              execute,
+              subscribe,
+              context: ({ req }) => ({ req, pubsub }),
+            },
             { server: httpServer, path: server.graphqlPath }
           );
           httpServer.listen(Config.port, () =>
             console.log(
               `🚀  Subscription server ready at ws://localhost:${Config.port}${server.graphqlPath}`
             )
-          )
-          console.log(`🚀  Server ready at http://localhost:${Config.port}${server.graphqlPath}`);
+          );
+          console.log(
+            `🚀  Server ready at http://localhost:${Config.port}${server.graphqlPath}`
+          );
         })
         .catch((err) => {
           console.log(err);

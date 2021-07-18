@@ -7,7 +7,7 @@
     "test": "nodemon index.js",
     "start": "node index.js"
   },
-  "author": "",
+  "author": "Leevesh Kamboj",
   "license": "ISC",
   "dependencies": {
     "@graphql-tools/schema": "^7.1.5",
