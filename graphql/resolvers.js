@@ -196,7 +196,7 @@ module.exports = {
               users,
               messages: [
                 ...a.messages.filter((msg) => {
-                  return msg._id !== payload.pmCreated.id;
+                  return msg.id !== payload.pmCreated.id;
                 }),
                 {
                   id: payload.pmCreated.id,
@@ -207,6 +207,14 @@ module.exports = {
                 },
               ],
             });
+            updateContact(
+              payload.toUsername,
+              variables.username,
+              payload.pmCreated.username,
+              payload.pmCreated.body,
+              payload.pmCreated.createdAt,
+              true
+            )
           }
           if (
             payload.toUsername === user.username &&
