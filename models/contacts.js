@@ -8,6 +8,7 @@ contactsSchema = new Schema({
       lastMessageUsername: String,
       lastMessage: String,
       lastMessageAt: String,
+      lastMessageSeen: Boolean,
     },
   ],
 });

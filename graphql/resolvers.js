@@ -51,13 +51,15 @@ async function updateContact(
   newContact,
   lastMessageUsername,
   lastMessage,
-  lastMessageAt
+  lastMessageAt,
+  lastMessageSeen
 ) {
   const newContactObj = {
     username: newContact,
     lastMessageUsername,
     lastMessage,
     lastMessageAt,
+    lastMessageSeen,
   };
   contact = await Contact.findOne({
     username: selfUsername,
@@ -81,6 +83,16 @@ async function updateContact(
   }
 }
 
+function compare(a, b) {
+  if (a.lastMessageAt > b.lastMessageAt) {
+    return -1;
+  }
+  if (a.lastMessageAt < b.lastMessageAt) {
+    return 1;
+  }
+  return 0;
+}
+
 module.exports = {
   Query: {
     async getMessages() {
@@ -92,10 +104,19 @@ module.exports = {
       contact = await Contact.findOne({
         username: user.username,
       });
+      var unread = 0;
       if (!contact) {
-        return [];
+        return { contacts: [], unread };
       } else {
-        return contact.contacts;
+        Object.values(contact.contacts).map((con) => {
+          if (
+            con.lastMessageUsername !== user.username &&
+            !con.lastMessageSeen
+          ) {
+            unread += 1;
+          }
+        });
+        return { contacts: contact.contacts.sort(compare), unread };
       }
     },
     async getPms(_, { username }, context) {
@@ -128,6 +149,27 @@ module.exports = {
       if (!conv) {
         return [];
       }
+
+      Object.values(conv.messages).map(function (msg) {
+        if (msg.username !== user.username) {
+          return (msg.seen = true);
+        }
+      });
+      const lastMsg = conv.messages[conv.messages.length - 1];
+      if (lastMsg.username !== user.username) {
+        pubsub.publish(`MESSAGE_SEEN`, {
+          pmSeenSub: lastMsg.id,
+        });
+      }
+      await conv.updateOne({ messages: conv.messages });
+      await updateContact(
+        user.username,
+        username,
+        lastMsg.username,
+        lastMsg.body,
+        lastMsg.createdAt,
+        lastMsg.username !== user.username
+      );
       return conv.messages;
     },
   },
@@ -139,8 +181,41 @@ module.exports = {
     pmCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator("PM_CREATED"),
-        (payload, variables) => {
+        async (payload, variables) => {
           const user = jwt.verify(variables.token, secretKey);
+          if (
+            payload.toUsername === user.username &&
+            variables.username === payload.pmCreated.username
+          ) {
+            const users = [
+              payload.toUsername,
+              payload.pmCreated.username,
+            ].sort();
+            a = await Pm.findOne({ users });
+            await a.updateOne({
+              users,
+              messages: [
+                ...a.messages.filter((msg) => {
+                  return msg._id !== payload.pmCreated.id;
+                }),
+                {
+                  id: payload.pmCreated.id,
+                  username: payload.pmCreated.username,
+                  body: payload.pmCreated.body,
+                  createdAt: payload.pmCreated.createdAt,
+                  seen: true,
+                },
+              ],
+            });
+          }
+          if (
+            payload.toUsername === user.username &&
+            variables.username === payload.pmCreated.username
+          ) {
+            pubsub.publish(`MESSAGE_SEEN`, {
+              pmSeenSub: payload.pmCreated.id,
+            });
+          }
           return (
             (payload.toUsername === user.username &&
               variables.username === payload.pmCreated.username) ||
@@ -148,6 +223,9 @@ module.exports = {
           );
         }
       ),
+    },
+    pmSeenSub: {
+      subscribe: () => pubsub.asyncIterator(["MESSAGE_SEEN"]),
     },
   },
 
@@ -230,17 +308,19 @@ module.exports = {
             username: user.username,
             body: body,
             createdAt: date,
-            seen: true,
+            seen: false,
           },
         ],
       });
-
+      conv = await Pm.findOne({
+        users,
+      });
       const sendPm = {
-        id: conv._id,
+        id: conv.messages[conv.messages.length - 1].id,
         username: user.username,
         body: body,
         createdAt: date,
-        seen: true,
+        seen: false,
       };
 
       pubsub.publish(`PM_CREATED`, {
@@ -248,8 +328,22 @@ module.exports = {
         toUsername: username,
       });
 
-      await updateContact(user.username, username, user.username, body, date);
-      await updateContact(username, user.username, user.username, body, date);
+      await updateContact(
+        user.username,
+        username,
+        user.username,
+        body,
+        date,
+        false
+      );
+      await updateContact(
+        username,
+        user.username,
+        user.username,
+        body,
+        date,
+        false
+      );
 
       return sendPm;
     },
@@ -360,6 +454,37 @@ module.exports = {
       return {
         email: result.email,
       };
+    },
+    async search(_, { username }, context) {
+      const check = checkAuth(context);
+      if (!check) {
+        throw new UserInputError("Action denied!");
+      } else if (username.trim() === "") {
+        throw new UserInputError("Username can't be empty.", {
+          errors: {
+            username: "Username can't be empty.",
+          },
+        });
+      } else if (check.username === username) {
+        throw new UserInputError("Can't chat with yourself.", {
+          errors: {
+            username: "Can't chat with yourself.",
+          },
+        });
+      }
+
+      username = username.toLowerCase();
+      const user = await User.findOne({
+        username,
+      });
+      if (!user) {
+        throw new UserInputError("User not found", {
+          errors: {
+            username: "User not found.",
+          },
+        });
+      }
+      return true;
     },
     async verifyEmail(_, { token }) {
       if (token) {

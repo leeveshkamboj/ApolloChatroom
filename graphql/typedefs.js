@@ -22,6 +22,11 @@ module.exports = gql`
     lastMessageUsername: String
     lastMessage: String
     lastMessageAt: String
+    lastMessageSeen: Boolean
+  }
+  type contactsOutput {
+    contacts: [Contact]!
+    unread: Int!
   }
   type Pm {
     id: ID
@@ -32,12 +37,13 @@ module.exports = gql`
   }
   type Query {
     getMessages: [Message]!
-    getContacts: [Contact]!
+    getContacts: contactsOutput
     getPms(username: String!): [Pm]!
   }
   type Subscription {
     messageCreated: Message
     pmCreated(token: String!, username: String!): Pm
+    pmSeenSub: ID!
   }
   type Mutation {
     login(username: String!, password: String!): User
@@ -47,6 +53,7 @@ module.exports = gql`
       confirmPassword: String!
       username: String!
     ): registerOutput
+    search(username: String!): String!
     verifyEmail(token: String!): User
     postMessage(body: String!): Message
     postPm(username: String!, body: String!): Pm
