@@ -7,7 +7,7 @@ userSchema = new Schema({
   createdAt: String,
   verified: {
     type: Boolean,
-    default: false,
+    default: true,
   },
 });
 module.exports = model("User", userSchema);

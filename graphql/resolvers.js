@@ -448,16 +448,16 @@ module.exports = {
         subject: "Verify your email address",
         html: `Hey ${username}, confirm your email by click <a href="${link}">here</a>`,
       };
-      transport.sendMail(message, (err, info) => {
-        if (err) {
-          console.log(err);
-          throw new ApolloError("Internal Server Error", {
-            errors: {
-              email: `Error in sending mail to ${email}`,
-            },
-          });
-        }
-      });
+      // transport.sendMail(message, (err, info) => {
+      //   if (err) {
+      //     console.log(err);
+      //     throw new ApolloError("Internal Server Error", {
+      //       errors: {
+      //         email: `Error in sending mail to ${email}`,
+      //       },
+      //     });
+      //   }
+      // });
       const result = await user.save();
       return {
         email: result.email,
